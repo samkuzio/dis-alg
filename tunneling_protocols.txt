@@ -1,0 +1,8 @@
+Alternative Layer 2 Tunneling Protocols
+
+- L2TP/IPsec: Industry standard, supported natively by most OS kernels.
+- SoftEther VPN: Multi-protocol VPN software excelling at virtual Ethernet bridging.
+- ZeroTier: Software-defined networking solution acting as a virtual global Ethernet switch.
+- OpenVPN (TAP Mode): Classic Ethernet bridging solution (TAP mode instead of TUN).
+- VXLAN: Enterprise standard for L2-over-L3 tunneling.
+- Tailscale: L3 VPN but can handle some subnet routing.
