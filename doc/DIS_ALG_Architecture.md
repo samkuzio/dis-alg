@@ -4,8 +4,9 @@
 The DIS ALG is a Go-based hub-and-spoke relay designed to bridge DIS traffic across non-broadcast capable networks (VPNs/Cloud). The system prioritizes low-latency relay, scalability to multiple sites, and extensibility for future DIS-aware filtering/routing logic.
 
 ## 2. High-Level Architecture
-- **Hub (Central Node):** A centralized process receiving TCP streams from all Spokes. It maintains a registry of active spokes and implements broadcast-to-all logic (fan-out).
-- **Spokes (Terminal Nodes):** Local relays at each site that listen to local UDP broadcast and tunnel packets to the Hub over TCP.
+The system is built as a single unified binary (`dis-alg`) that can run in one of two distinct modes:
+- **Hub Mode (Central Node):** A centralized process receiving TCP streams from all Spokes. It maintains a registry of active spokes and implements broadcast-to-all logic (fan-out).
+- **Terminal Mode (Spoke):** Local relays at each site that listen to local UDP broadcast and tunnel packets to the Hub over TCP.
 
 ## 3. Communication Protocol
 - **Transport:** Persistent TCP streams per Spoke (abstraction interface provided for future protocols).
@@ -45,8 +46,7 @@ The DIS ALG is a Go-based hub-and-spoke relay designed to bridge DIS traffic acr
 The codebase is organized to support Contract-First Development and strict isolation of concerns, making unit testing and AI-driven implementation highly effective.
 
 ```text
-/cmd/hub            - main.go (CLI flags, dependency wiring, starts Hub server)
-/cmd/spoke          - main.go (CLI flags, dependency wiring, starts Spoke client)
+/cmd/dis-alg        - main.go (Unified binary with CLI flags/subcommands, starts Hub or Spoke mode)
 /pkg/core           - Contract definitions (Transport and Router interfaces) and shared domain types
 /pkg/protocol       - Custom DIS-ALG header struct, byte framing, serialization/deserialization logic (TDD mandatory)
 /pkg/transport/tcp  - TCP implementation of the core.Transport interface
