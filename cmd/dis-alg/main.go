@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"dis-alg/pkg/hub"
 	"dis-alg/pkg/terminal"
@@ -29,7 +32,18 @@ func main() {
 			os.Exit(1)
 		}
 		
-		if err := hub.RunServer(transport, address); err != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-sigChan
+			fmt.Println("\nShutting down...")
+			cancel()
+		}()
+		
+		if err := hub.RunServer(ctx, transport, address); err != nil {
 			fmt.Printf("Hub server failed: %v\n", err)
 			os.Exit(1)
 		}
