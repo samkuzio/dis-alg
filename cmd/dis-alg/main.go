@@ -29,7 +29,10 @@ func main() {
 			os.Exit(1)
 		}
 		
-		hub.Run(transport, address)
+		if err := hub.RunServer(transport, address); err != nil {
+			fmt.Printf("Hub server failed: %v\n", err)
+			os.Exit(1)
+		}
 	case "terminal":
 		terminal.Run()
 	default:

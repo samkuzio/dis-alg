@@ -24,7 +24,12 @@ go build -o dis-alg ./cmd/dis-alg/
 
 **Run tests:**
 ```bash
+# Standard test execution
 go test ./...
+
+# If you encounter permission denied errors for /tmp/go-build* (common in some Docker/sandbox environments), 
+# override GOTMPDIR to use a local temporary directory:
+mkdir -p gotmp && GOTMPDIR=$(pwd)/gotmp go test ./...
 ```
 *(Tests should be written using standard Go testing practices. TDD is mandatory for protocol serialization/deserialization logic.)*
 
@@ -42,6 +47,11 @@ go test ./...
 * **--simulation, -s**: The IP and Port on which the terminal node will listen to simulation traffic. Always assumed to be UDP. The IP may be a broadcast, multicast, or unicast IP.
 * **--hub, -h**: The IP and port on which the terminal node will connect to the hub.
 * **--transport, -t**: The transport protocol that will be used to connect to the hub, currently the only supported value is `tcp`.
+
+## Documentation Standards
+- **Public Functions:** All public functions must have a documentation string that explains what they do and return, unless they are trivial one-line accessor functions.
+- **Constants and Global Variables:** All constants and global variables must have a documentation comment explaining their purpose and use.
+- **Struct Fields:** All struct fields must have comments describing their purpose.
 
 ## AI Agent Guidelines
 - Use contract-first development. Favor interface-based transport abstractions (e.g., `Transport` interface) for core functions.
