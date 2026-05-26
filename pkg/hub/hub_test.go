@@ -41,7 +41,7 @@ func (m *mockConnection) WritePacket(p *core.Packet) error {
 		return nil
 	default:
 		// Simulate network block if the internal channel buffer is full
-		return nil 
+		return nil
 	}
 }
 
@@ -65,10 +65,10 @@ func TestHub_FanOutAndSlowConsumer(t *testing.T) {
 	// 2. Setup 3 Mock Clients
 	fastClient1Conn := newMockConnection("fast-1", 100)
 	fastClient1 := &Client{hub: hub, conn: fastClient1Conn, send: make(chan *core.Packet, 10)}
-	
+
 	fastClient2Conn := newMockConnection("fast-2", 100)
 	fastClient2 := &Client{hub: hub, conn: fastClient2Conn, send: make(chan *core.Packet, 10)}
-	
+
 	slowClientConn := newMockConnection("slow-1", 0)
 	// Give the slow client a tiny buffer to artificially trigger the drop logic quickly
 	slowClient := &Client{hub: hub, conn: slowClientConn, send: make(chan *core.Packet, 1)}
@@ -84,12 +84,12 @@ func TestHub_FanOutAndSlowConsumer(t *testing.T) {
 	// Start their pumps
 	var wg sync.WaitGroup
 	wg.Add(6)
-	
+
 	startPump := func(c *Client) {
 		go func() { defer wg.Done(); c.readPump() }()
 		go func() { defer wg.Done(); c.writePump() }()
 	}
-	
+
 	startPump(fastClient1)
 	startPump(fastClient2)
 	startPump(slowClient)
@@ -110,14 +110,13 @@ func TestHub_FanOutAndSlowConsumer(t *testing.T) {
 	// actually the send buffer is make(chan *core.Packet, 1). So it holds 1 packet.
 	// But the writePump might immediately pull it off the channel and block on the mockConnection.writeChan which is size 100!
 	// Let's adjust the test: the mockConnection's writeChan needs to be small for the slow client.
-	
 
 	// 4. Assertions
 	// fastClient2 should have received all 5
 	if len(fastClient2Conn.writeChan) != 5 {
 		t.Errorf("Expected fastClient2 to receive 5 packets, got %d", len(fastClient2Conn.writeChan))
 	}
-	
+
 	// slowClient had a send buffer of 1. It should have received exactly 1 or 2 (depending on goroutine timing), and the hub dropped the others.
 	// But crucially, it did NOT block the hub from delivering to fastClient2.
 	if len(slowClientConn.writeChan) > 2 {
@@ -128,7 +127,7 @@ func TestHub_FanOutAndSlowConsumer(t *testing.T) {
 	fastClient1Conn.Close()
 	fastClient2Conn.Close()
 	slowClientConn.Close()
-	
+
 	// Wait for goroutines to exit to ensure no leaks
 	wg.Wait()
 }

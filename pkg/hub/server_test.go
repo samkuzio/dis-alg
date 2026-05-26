@@ -54,14 +54,14 @@ func TestClient_WritePumpError(t *testing.T) {
 
 func TestRunServer_GracefulShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	errChan := make(chan error, 1)
 	go func() {
 		errChan <- RunServer(ctx, "tcp", "127.0.0.1:0")
 	}()
 
 	time.Sleep(50 * time.Millisecond) // Let it start listening
-	cancel() // Trigger shutdown
+	cancel()                          // Trigger shutdown
 
 	select {
 	case err := <-errChan:

@@ -18,13 +18,13 @@ const clientSendBufferSize = 256
 // It will stop accepting connections and exit when the provided context is canceled.
 func RunServer(ctx context.Context, transport, address string) error {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	
+
 	coreListener, err := tcp.NewListener(address)
 	if err != nil {
 		logger.Error("Failed to start listener", "error", err.Error())
 		return err
 	}
-	
+
 	// Graceful shutdown mechanism
 	go func() {
 		<-ctx.Done()

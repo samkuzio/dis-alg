@@ -26,12 +26,12 @@ func main() {
 		}
 		transport := os.Args[2]
 		address := os.Args[3]
-		
+
 		if transport != "tcp" {
 			fmt.Printf("Error: unsupported transport '%s'. Only 'tcp' is supported.\n", transport)
 			os.Exit(1)
 		}
-		
+
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -42,7 +42,7 @@ func main() {
 			fmt.Println("\nShutting down...")
 			cancel()
 		}()
-		
+
 		if err := hub.RunServer(ctx, transport, address); err != nil {
 			fmt.Printf("Hub server failed: %v\n", err)
 			os.Exit(1)

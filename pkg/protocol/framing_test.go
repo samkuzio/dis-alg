@@ -60,15 +60,15 @@ func TestReadPacket_PartialReads(t *testing.T) {
 
 func TestReadPacket_PayloadTooLarge(t *testing.T) {
 	var buf bytes.Buffer
-	
+
 	// Write header manually with an excessively large payload size
 	header := make([]byte, 16)
-	binary.BigEndian.PutUint32(header[0:4], 1) // SourceID
-	binary.BigEndian.PutUint64(header[4:12], 1) // PacketNumber
+	binary.BigEndian.PutUint32(header[0:4], 1)                  // SourceID
+	binary.BigEndian.PutUint64(header[4:12], 1)                 // PacketNumber
 	binary.BigEndian.PutUint32(header[12:16], MaxPayloadSize+1) // PayloadLength (too large)
-	
+
 	buf.Write(header)
-	
+
 	_, err := ReadPacket(&buf)
 	if err == nil {
 		t.Fatal("Expected error for oversized payload, got nil")
@@ -78,7 +78,7 @@ func TestReadPacket_PayloadTooLarge(t *testing.T) {
 func TestReadPacket_IncompleteHeader(t *testing.T) {
 	var buf bytes.Buffer
 	buf.Write([]byte{0x00, 0x01}) // Only 2 bytes, header requires 16
-	
+
 	_, err := ReadPacket(&buf)
 	if err != io.ErrUnexpectedEOF && err != io.EOF {
 		t.Fatalf("Expected EOF/UnexpectedEOF, got %v", err)

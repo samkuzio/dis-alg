@@ -43,14 +43,14 @@ func (h *Hub) Run() {
 		case client := <-h.register:
 			h.clients[client] = true
 			h.logger.Info("Client registered", "addr", client.conn.RemoteAddr(), "total_clients", len(h.clients))
-			
+
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
 				h.logger.Info("Client unregistered", "addr", client.conn.RemoteAddr(), "total_clients", len(h.clients))
 			}
-			
+
 		case packet := <-h.broadcast:
 			for client := range h.clients {
 				select {
