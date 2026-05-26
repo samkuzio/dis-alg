@@ -12,8 +12,17 @@ import (
 )
 
 func main() {
+	if len(os.Args) >= 2 {
+		arg := os.Args[1]
+		if arg == "-h" || arg == "--help" || arg == "help" {
+			printHelp()
+			os.Exit(0)
+		}
+	}
+
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: dis-alg <hub|terminal> [args...]")
+		fmt.Println("Run 'dis-alg --help' for more information.")
 		os.Exit(1)
 	}
 
