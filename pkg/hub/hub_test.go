@@ -2,8 +2,7 @@ package hub
 
 import (
 	"io"
-	"log/slog"
-	"os"
+	"dis-alg/pkg/logger"
 	"sync"
 	"testing"
 	"time"
@@ -58,7 +57,7 @@ func (m *mockConnection) RemoteAddr() string {
 
 func TestHub_FanOutAndSlowConsumer(t *testing.T) {
 	// 1. Setup Hub
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger, _ := logger.New(true)
 	hub := NewHub(logger)
 	go hub.Run()
 
@@ -129,5 +128,61 @@ func TestHub_FanOutAndSlowConsumer(t *testing.T) {
 	slowClientConn.Close()
 
 	// Wait for goroutines to exit to ensure no leaks
+	wg.Wait()
+}
+
+func TestHub_SenderFiltering(t *testing.T) {
+	// 1. Setup Hub
+	l, _ := logger.New(true)
+	hub := NewHub(l)
+	go hub.Run()
+
+	// 2. Setup 2 Mock Clients
+	client1Conn := newMockConnection("client-1", 100)
+	client1 := &Client{hub: hub, conn: client1Conn, send: make(chan *core.Packet, 10)}
+
+	client2Conn := newMockConnection("client-2", 100)
+	client2 := &Client{hub: hub, conn: client2Conn, send: make(chan *core.Packet, 10)}
+
+	// Register them
+	hub.register <- client1
+	hub.register <- client2
+
+	time.Sleep(10 * time.Millisecond)
+
+	var wg sync.WaitGroup
+	wg.Add(4)
+
+	startPump := func(c *Client) {
+		go func() { defer wg.Done(); c.readPump() }()
+		go func() { defer wg.Done(); c.writePump() }()
+	}
+
+	startPump(client1)
+	startPump(client2)
+
+	// 3. Client 1 sends 1 packet
+	client1Conn.readChan <- &core.Packet{
+		SourceID:     1,
+		PacketNumber: 1,
+		Payload:      []byte("sender-filtering-test"),
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	// 4. Assertions
+	// Client 2 should have received the packet
+	if len(client2Conn.writeChan) != 1 {
+		t.Errorf("Expected client2 to receive 1 packet, got %d", len(client2Conn.writeChan))
+	}
+
+	// Client 1 should NOT have received the packet back
+	if len(client1Conn.writeChan) != 0 {
+		t.Errorf("Expected client1 to receive 0 packets (filtered), got %d", len(client1Conn.writeChan))
+	}
+
+	// 5. Teardown
+	client1Conn.Close()
+	client2Conn.Close()
 	wg.Wait()
 }

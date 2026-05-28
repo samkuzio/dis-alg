@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/zap"
+
+	"dis-alg/pkg/logger"
 	"dis-alg/pkg/transport/tcp"
 )
 
@@ -19,6 +22,7 @@ func Run() {
 	var simAddr string
 	var hubAddr string
 	var transportType string
+	var verbose bool
 
 	// Support standard flags
 	fs.StringVar(&simAddr, "simulation", "", "The IP and Port on which the terminal node will listen to simulation traffic (e.g. 192.168.1.255:3000)")
@@ -29,6 +33,9 @@ func Run() {
 
 	fs.StringVar(&transportType, "transport", "tcp", "The transport protocol (default tcp)")
 	fs.StringVar(&transportType, "t", "tcp", "Alias for --transport")
+
+	fs.BoolVar(&verbose, "verbose", false, "Enable verbose debug logging")
+	fs.BoolVar(&verbose, "v", false, "Alias for --verbose")
 
 	// Parse arguments (skipping 'dis-alg terminal')
 	if len(os.Args) < 2 {
@@ -50,6 +57,13 @@ func Run() {
 		os.Exit(1)
 	}
 
+	log, err := logger.New(verbose)
+	if err != nil {
+		fmt.Printf("Failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
+	defer log.Sync()
+
 	// Generate a random source ID for this terminal node
 	rand.Seed(time.Now().UnixNano())
 	sourceID := rand.Uint32()
@@ -57,9 +71,9 @@ func Run() {
 	// Initialize TCP dialer
 	dialer := tcp.NewDialer()
 
-	node, err := NewTerminalNode(sourceID, simAddr, hubAddr, dialer)
+	node, err := NewTerminalNode(sourceID, simAddr, hubAddr, dialer, log)
 	if err != nil {
-		fmt.Printf("Failed to initialize terminal node: %v\n", err)
+		log.Error("Failed to initialize terminal node", zap.Error(err))
 		os.Exit(1)
 	}
 
@@ -75,7 +89,7 @@ func Run() {
 	}()
 
 	if err := node.Run(ctx); err != nil {
-		fmt.Printf("Terminal node failed: %v\n", err)
+		log.Error("Terminal node failed", zap.Error(err))
 		os.Exit(1)
 	}
 }

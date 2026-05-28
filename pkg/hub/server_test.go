@@ -3,8 +3,7 @@ package hub
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"os"
+	"dis-alg/pkg/logger"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ func (m *failingMockConnection) WritePacket(p *core.Packet) error {
 }
 
 func TestClient_WritePumpError(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger, _ := logger.New(true)
 	hub := NewHub(logger)
 	go hub.Run()
 
@@ -53,11 +52,12 @@ func TestClient_WritePumpError(t *testing.T) {
 }
 
 func TestRunServer_GracefulShutdown(t *testing.T) {
+	log, _ := logger.New(true)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- RunServer(ctx, "tcp", "127.0.0.1:0")
+		errChan <- RunServer(ctx, "tcp", "127.0.0.1:0", log)
 	}()
 
 	time.Sleep(50 * time.Millisecond) // Let it start listening

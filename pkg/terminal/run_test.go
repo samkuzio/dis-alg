@@ -1,6 +1,8 @@
 package terminal
 
 import (
+	"dis-alg/pkg/logger"
+
 	"context"
 	"testing"
 	"time"
@@ -23,7 +25,8 @@ func TestTerminalNode_Run(t *testing.T) {
 	mockDialer := &MockDialer{conn: mockConn}
 
 	// Use a random local port for UDP
-	node, err := NewTerminalNode(123, "127.0.0.1:0", "hub:8080", mockDialer)
+	log, _ := logger.New(true)
+	node, err := NewTerminalNode(123, "127.0.0.1:0", "hub:8080", mockDialer, log)
 	if err != nil {
 		t.Fatalf("Failed to create node: %v", err)
 	}

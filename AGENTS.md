@@ -17,9 +17,9 @@ Relevant documentation is available in the `doc/` folder of this repository:
 
 ## Build and Test Commands
 
-**Build the project:**
+**Build the statically linked project (outside Docker):**
 ```bash
-go build -o dis-alg ./cmd/dis-alg/
+GOTMPDIR=/workspace/gotmp CGO_ENABLED=0 go build -ldflags="-w -s" -o dis-alg ./cmd/dis-alg/
 ```
 
 **Run tests:**

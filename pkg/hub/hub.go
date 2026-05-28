@@ -1,65 +1,62 @@
 package hub
 
 import (
-	"log/slog"
+	"go.uber.org/zap"
 
 	"dis-alg/pkg/core"
 )
 
+type BroadcastMessage struct {
+	Sender *Client
+	Packet *core.Packet
+}
+
 // Hub maintains the set of active clients and broadcasts messages to them.
 type Hub struct {
-	// Registered clients.
-	clients map[*Client]bool
-
-	// Inbound messages from the clients.
-	broadcast chan *core.Packet
-
-	// Register requests from the clients.
-	register chan *Client
-
-	// Unregister requests from clients.
+	clients    map[*Client]bool
+	broadcast  chan BroadcastMessage
+	register   chan *Client
 	unregister chan *Client
-
-	// Logger for structured observability.
-	logger *slog.Logger
+	logger     *zap.Logger
 }
 
 // NewHub creates a new Hub instance.
-func NewHub(logger *slog.Logger) *Hub {
+func NewHub(logger *zap.Logger) *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan *core.Packet),
+		broadcast:  make(chan BroadcastMessage),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		logger:     logger,
 	}
 }
 
-// Run starts the hub event loop. It blocks indefinitely.
+// Run starts the hub event loop.
 func (h *Hub) Run() {
 	h.logger.Info("Hub event loop started")
 	for {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
-			h.logger.Info("Client registered", "addr", client.conn.RemoteAddr(), "total_clients", len(h.clients))
+			h.logger.Info("Client registered", zap.String("addr", client.conn.RemoteAddr()), zap.Int("total_clients", len(h.clients)))
 
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
-				h.logger.Info("Client unregistered", "addr", client.conn.RemoteAddr(), "total_clients", len(h.clients))
+				h.logger.Info("Client unregistered", zap.String("addr", client.conn.RemoteAddr()), zap.Int("total_clients", len(h.clients)))
 			}
 
-		case packet := <-h.broadcast:
+		case msg := <-h.broadcast:
 			for client := range h.clients {
+				// Requirement 1: Do not send the packet back to the originator
+				if client == msg.Sender {
+					continue
+				}
 				select {
-				case client.send <- packet:
-					// Packet successfully buffered for the client's writePump
+				case client.send <- msg.Packet:
 				default:
-					// Slow consumer detected: buffer is full.
-					// Architecture dictates "best-effort" delivery, so we drop it.
-					h.logger.Warn("Slow consumer detected, dropping packet", "addr", client.conn.RemoteAddr(), "packet_num", packet.PacketNumber)
+					h.logger.Warn("Slow consumer detected, dropping packet", zap.String("addr", client.conn.RemoteAddr()), zap.Uint64("packet_num", msg.Packet.PacketNumber))
 				}
 			}
 		}

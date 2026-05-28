@@ -1,6 +1,8 @@
 package terminal
 
 import (
+	"dis-alg/pkg/logger"
+
 	"context"
 	"net"
 	"sync"
@@ -120,7 +122,8 @@ func TestTerminalNode_Ingress(t *testing.T) {
 	}
 	mockDialer := &MockDialer{conn: mockConn}
 
-	node, err := NewTerminalNode(123, "127.0.0.1:0", "hub:8080", mockDialer)
+	log, _ := logger.New(true)
+	node, err := NewTerminalNode(123, "127.0.0.1:0", "hub:8080", mockDialer, log)
 	if err != nil {
 		t.Fatalf("Failed to create node: %v", err)
 	}
@@ -179,7 +182,8 @@ func TestTerminalNode_Egress_And_Echo(t *testing.T) {
 	}
 	mockDialer := &MockDialer{conn: mockConn}
 
-	node, err := NewTerminalNode(123, "127.0.0.1:0", "hub:8080", mockDialer)
+	log, _ := logger.New(true)
+	node, err := NewTerminalNode(123, "127.0.0.1:0", "hub:8080", mockDialer, log)
 	if err != nil {
 		t.Fatalf("Failed to create node: %v", err)
 	}

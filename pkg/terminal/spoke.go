@@ -3,10 +3,11 @@ package terminal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net"
 	"sync"
 	"sync/atomic"
+
+	"go.uber.org/zap"
 
 	"dis-alg/pkg/core"
 )
@@ -22,10 +23,11 @@ type TerminalNode struct {
 	echoCache  *EchoCache
 
 	packetNum uint64
+	logger    *zap.Logger
 }
 
 // NewTerminalNode creates a new TerminalNode.
-func NewTerminalNode(sourceID uint32, simAddrStr, hubAddr string, dialer core.Dialer) (*TerminalNode, error) {
+func NewTerminalNode(sourceID uint32, simAddrStr, hubAddr string, dialer core.Dialer, logger *zap.Logger) (*TerminalNode, error) {
 	// Parse the target UDP address to broadcast to
 	simAddr, err := net.ResolveUDPAddr("udp", simAddrStr)
 	if err != nil {
@@ -39,6 +41,7 @@ func NewTerminalNode(sourceID uint32, simAddrStr, hubAddr string, dialer core.Di
 		hubAddr:    hubAddr,
 		sourceID:   sourceID,
 		echoCache:  NewEchoCache(512), // Cache last 512 packets
+		logger:     logger,
 	}, nil
 }
 
@@ -51,7 +54,7 @@ func (t *TerminalNode) Run(ctx context.Context) error {
 	}
 	t.udp = udpConn
 	defer t.udp.Close()
-	slog.Info("Terminal listening for local UDP", "addr", t.simAddrStr)
+	t.logger.Info("Terminal listening for local UDP", zap.String("addr", t.simAddrStr))
 
 	// 2. Connect to the remote Hub
 	hubConn, err := t.dialer.Dial(t.hubAddr)
@@ -59,16 +62,17 @@ func (t *TerminalNode) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to Hub: %w", err)
 	}
 	defer hubConn.Close()
-	slog.Info("Terminal connected to Hub", "hub_addr", t.hubAddr)
+	t.logger.Info("Terminal connected to Hub", zap.String("hub_addr", t.hubAddr))
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// 2.5 Force UDP close when context is cancelled to unblock ReadFrom
+	// 2.5 Force UDP and Hub close when context is cancelled to unblock ReadFrom
 	go func() {
 		<-ctx.Done()
 		t.udp.Close()
+		hubConn.Close()
 	}()
 
 	// 3. Start Ingress goroutine (Hub -> Local UDP)
@@ -103,9 +107,11 @@ func (t *TerminalNode) runIngress(ctx context.Context, hubConn core.Connection) 
 
 		packet, err := hubConn.ReadPacket()
 		if err != nil {
-			slog.Error("Failed to read from Hub", "error", err)
+			t.logger.Error("Failed to read from Hub", zap.Error(err))
 			return
 		}
+
+		t.logger.Debug("Received packet from Hub", zap.Uint32("sourceID", packet.SourceID), zap.Uint64("packetNum", packet.PacketNumber), zap.Int("len", len(packet.Payload)))
 
 		// Add to echo cache before broadcasting so our own listener drops it
 		t.echoCache.Add(packet.Payload)
@@ -113,10 +119,8 @@ func (t *TerminalNode) runIngress(ctx context.Context, hubConn core.Connection) 
 		// Broadcast to local network
 		_, err = t.udp.WriteTo(packet.Payload, t.simAddr)
 		if err != nil {
-			slog.Error("Failed to write to local UDP", "error", err)
+			t.logger.Error("Failed to write to local UDP", zap.Error(err))
 			// Continue on UDP write errors (might be transient)
-		} else {
-			slog.Debug("Bridged packet to UDP", "sourceID", packet.SourceID, "packetNum", packet.PacketNumber, "len", len(packet.Payload))
 		}
 	}
 }
@@ -124,10 +128,6 @@ func (t *TerminalNode) runIngress(ctx context.Context, hubConn core.Connection) 
 // runEgress reads packets from the local simulation network and forwards them to the Hub.
 func (t *TerminalNode) runEgress(ctx context.Context, hubConn core.Connection) {
 	buf := make([]byte, 65535) // Max UDP size
-
-	// We use a small timeout on UDP read if possible to check context cancellation,
-	// but standard net.UDPConn doesn't easily support select {}.
-	// For this PoC, we let it block. If the connection is closed during shutdown, ReadFrom will return an error.
 
 	for {
 		select {
@@ -142,7 +142,7 @@ func (t *TerminalNode) runEgress(ctx context.Context, hubConn core.Connection) {
 			case <-ctx.Done():
 				return // Expected during shutdown
 			default:
-				slog.Error("Failed to read from local UDP", "error", err)
+				t.logger.Error("Failed to read from local UDP", zap.Error(err))
 				return
 			}
 		}
@@ -150,9 +150,11 @@ func (t *TerminalNode) runEgress(ctx context.Context, hubConn core.Connection) {
 		payload := make([]byte, n)
 		copy(payload, buf[:n])
 
+		t.logger.Debug("Received packet from simulation socket", zap.Int("len", n))
+
 		// Echo cancellation check
 		if t.echoCache.Contains(payload) {
-			slog.Debug("Dropped echoed packet", "len", n)
+			t.logger.Debug("Dropped echoed packet", zap.Int("len", n))
 			continue
 		}
 
@@ -165,10 +167,10 @@ func (t *TerminalNode) runEgress(ctx context.Context, hubConn core.Connection) {
 
 		err = hubConn.WritePacket(packet)
 		if err != nil {
-			slog.Error("Failed to write to Hub", "error", err)
+			t.logger.Error("Failed to write to Hub", zap.Error(err))
 			return
 		}
 
-		slog.Debug("Bridged packet to Hub", "packetNum", packet.PacketNumber, "len", n)
+		t.logger.Debug("Sent packet to Hub", zap.Uint64("packetNum", packet.PacketNumber), zap.Int("len", n))
 	}
 }
