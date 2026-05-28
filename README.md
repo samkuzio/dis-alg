@@ -1,5 +1,7 @@
 # dis-alg
 
+`dis-alg` is a bridging utility designed to route Distributed Interactive Simulation (DIS) network traffic across non-broadcast capable networks (such as WANs, VPNs, or cloud environments). Because the DIS protocol typically relies on local UDP broadcast or multicast, its traffic is often dropped or unroutable over wide area networks. `dis-alg` solves this by utilizing a Hub and Spoke architecture: Terminal nodes (spokes) sit on the local simulation subnets to capture local UDP DIS broadcasts, tunneling them over TCP to a central Hub node. The Hub then replicates and routes the traffic out to all other connected Terminal nodes, bridging the disparate simulation networks.
+
 `dis-alg` operates in either hub or terminal mode.
 
 ## Hub Mode
